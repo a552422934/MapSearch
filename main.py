@@ -665,6 +665,8 @@ class AMapGUI:
         # 初始化复选框容器
         self.city_checkbuttons = {}
         self.province_checkbuttons = {}
+        # 省/市数据加载防抖标志
+        self.is_loading_province_city = False
         self.create_widgets()
         self.load_settings()  
         # 尝试从本地文件或ConfigManager加载省市数据
@@ -705,7 +707,7 @@ class AMapGUI:
     def create_header(self, parent):
         """创建顶部标题区域。"""
         header_frame = tk.Frame(parent, bg='#ffffff')
-        header_frame.pack(fill='x', pady=(0, 8))
+        header_frame.pack(fill='x', pady=(0, 4))
         
         # 主标题 - 简化设计
         # title_label = tk.Label(header_frame, text="高德地图商家信息查询工具", 
@@ -724,7 +726,7 @@ class AMapGUI:
         
         # 标题
         title_frame = tk.Frame(config_frame, bg='#ffffff')
-        title_frame.pack(fill='x', padx=12, pady=(12, 8))
+        title_frame.pack(fill='x', padx=12, pady=(6, 4))
         
         config_title = tk.Label(title_frame, text="基本配置", 
                                font=('Microsoft YaHei UI', 11, 'bold'),
@@ -734,16 +736,17 @@ class AMapGUI:
         # 内容区域：API/关键词/导出路径/加载按钮 同一行
         # 说明：同一行能让用户按照"填 API → 填关键词 → 勾选导出 → 一键加载"顺序从左到右操作
         content_frame = tk.Frame(config_frame, bg='#ffffff')
-        content_frame.pack(fill='x', padx=12, pady=(0, 8))
-        content_frame.grid_columnconfigure(8, weight=1)
+        content_frame.pack(fill='x', padx=12, pady=(0, 4))
+        # 让第1列(API输入框列)可伸缩
+        content_frame.grid_columnconfigure(1, weight=1)
 
         # API
         tk.Label(content_frame, text="API Keys", font=('Microsoft YaHei UI', 9),
                 fg='#6b7280', bg='#ffffff').grid(row=0, column=0, sticky='w')
         self.api_key_entry = tk.Entry(content_frame, font=('Consolas', 9),
                                      bg='white', fg='#374151', relief='solid', bd=1,
-                                     highlightthickness=0, width=36)
-        self.api_key_entry.grid(row=0, column=1, sticky='w', padx=(6, 12))
+                                     highlightthickness=0, width=50)
+        self.api_key_entry.grid(row=0, column=1, sticky='ew', padx=(6, 12))
         self.api_key_entry.insert(0, '05539bdacda89aa2b5341552259a6702')
         self.api_key_entry.bind("<FocusIn>", self.clear_placeholder)
         self.api_key_entry.bind("<FocusOut>", self.add_placeholder)
@@ -787,7 +790,7 @@ class AMapGUI:
         
         # 标题
         title_frame = tk.Frame(selection_frame, bg='#ffffff')
-        title_frame.pack(fill='x', padx=12, pady=(12, 8))
+        title_frame.pack(fill='x', padx=12, pady=(6, 4))
         
         selection_title = tk.Label(title_frame, text="地区选择", 
                                   font=('Microsoft YaHei UI', 11, 'bold'),
@@ -796,7 +799,7 @@ class AMapGUI:
         
         # 内容区域
         content_frame = tk.Frame(selection_frame, bg='#ffffff')
-        content_frame.pack(fill='both', expand=True, padx=12, pady=(0, 12))
+        content_frame.pack(fill='both', expand=True, padx=12, pady=(0, 6))
         content_frame.grid_columnconfigure((0, 1), weight=1)
         content_frame.grid_rowconfigure(1, weight=1)
         
@@ -879,7 +882,7 @@ class AMapGUI:
         
         # 统计信息
         stats_frame = tk.Frame(content_frame, bg='#ffffff')
-        stats_frame.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(8, 0))
+        stats_frame.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(4, 0))
         
         self.area_hint_label = tk.Label(stats_frame, text="未选择城市", 
                                        font=('Microsoft YaHei UI', 9),
@@ -907,7 +910,7 @@ class AMapGUI:
         
         # 标题
         title_frame = tk.Frame(action_frame, bg='#ffffff')
-        title_frame.pack(fill='x', padx=12, pady=(6, 4))
+        title_frame.pack(fill='x', padx=12, pady=(4, 2))
         
         action_title = tk.Label(title_frame, text="操作面板", 
                                font=('Microsoft YaHei UI', 11, 'bold'),
@@ -916,11 +919,11 @@ class AMapGUI:
         
         # 内容区域
         content_frame = tk.Frame(action_frame, bg='#ffffff')
-        content_frame.pack(fill='x', padx=12, pady=(0, 4))
+        content_frame.pack(fill='x', padx=12, pady=(0, 2))
         
         # 操作按钮行（统一样式，单行排列）
         actions_row = tk.Frame(content_frame, bg='#ffffff')
-        actions_row.pack(fill='x', pady=(0, 6))
+        actions_row.pack(fill='x', pady=(0, 4))
 
         # 统一按钮样式：size=sm，统一间距；保留语义颜色
         self.start_button = self.create_button(actions_row, "开始查询",
@@ -956,11 +959,11 @@ class AMapGUI:
             
         # 查询进度区域（放在操作面板内，更显眼）
         progress_section = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
-        progress_section.pack(fill='x', pady=(6, 0))
+        progress_section.pack(fill='x', pady=(4, 0))
         
         # 进度标题
         progress_title = tk.Frame(progress_section, bg='#ffffff')
-        progress_title.pack(fill='x', padx=10, pady=(8, 4))
+        progress_title.pack(fill='x', padx=10, pady=(6, 3))
         
         tk.Label(progress_title, text="🔍 查询进度", 
                 font=('Microsoft YaHei UI', 9, 'bold'),
@@ -968,7 +971,7 @@ class AMapGUI:
         
         # 进度内容
         progress_content = tk.Frame(progress_section, bg='#ffffff')
-        progress_content.pack(fill='x', padx=10, pady=(0, 8))
+        progress_content.pack(fill='x', padx=10, pady=(0, 6))
         
         # 左侧状态信息
         left_status = tk.Frame(progress_content, bg='#ffffff')
@@ -1015,7 +1018,7 @@ class AMapGUI:
         """在操作面板内创建高级功能切换按钮与内容区域。"""
         # 高级功能切换区域
         toggle_section = tk.Frame(parent, bg='#ffffff')
-        toggle_section.pack(fill='x', pady=(6, 0))
+        toggle_section.pack(fill='x', pady=(4, 0))
         
         # 分隔线
         # separator = tk.Frame(toggle_section, bg='#ffffff', height=1)
@@ -1033,7 +1036,7 @@ class AMapGUI:
         
         # 高级功能标题
         adv_title_frame = tk.Frame(self.advanced_card, bg='#ffffff')
-        adv_title_frame.pack(fill='x', padx=10, pady=(8, 6))
+        adv_title_frame.pack(fill='x', padx=10, pady=(6, 4))
         
         adv_title = tk.Label(adv_title_frame, text="🔧 高级功能", 
                             font=('Microsoft YaHei UI', 10, 'bold'),
@@ -1042,7 +1045,7 @@ class AMapGUI:
         
         # 高级功能内容
         adv_content = tk.Frame(self.advanced_card, bg='#ffffff')
-        adv_content.pack(fill='x', padx=10, pady=(0, 8))
+        adv_content.pack(fill='x', padx=10, pady=(0, 6))
         adv_content.grid_columnconfigure(1, weight=1)
         
         # （已移除）城市文件选择功能
@@ -1073,7 +1076,7 @@ class AMapGUI:
                                             text="⏱️ 距离下次采集: 00:00:00", 
                                             font=('Microsoft YaHei UI', 8),
                                             fg='#9ca3af', bg='#ffffff')
-        self.remaining_time_label.pack(padx=12, pady=(0, 12))
+        self.remaining_time_label.pack(padx=12, pady=(0, 8))
         
     def toggle_advanced_features(self):
         """切换高级功能显示/隐藏，并更新按钮文案。"""
@@ -1092,13 +1095,13 @@ class AMapGUI:
         """创建结果显示卡片：日志、POI 数据与导出字段选择。"""
         # 结果区域 - 固定高度，为状态栏留出空间
         results_frame = tk.Frame(parent, bg='#ffffff', relief='flat', bd=1)
-        results_frame.pack(fill='x', pady=(0, 6))
+        results_frame.pack(fill='x', pady=(0, 4))
         results_frame.configure(height=240)
         results_frame.pack_propagate(False)
         
         # 标题
         title_frame = tk.Frame(results_frame, bg='#ffffff')
-        title_frame.pack(fill='x', padx=12, pady=(12, 8))
+        title_frame.pack(fill='x', padx=12, pady=(6, 4))
         
         results_title = tk.Label(title_frame, text="查询结果", 
                                 font=('Microsoft YaHei UI', 11, 'bold'),
@@ -1107,7 +1110,7 @@ class AMapGUI:
         
         # 内容区域 - 设置固定高度
         content_frame = tk.Frame(results_frame, bg='#ffffff')
-        content_frame.pack(fill='x', padx=12, pady=(0, 12))
+        content_frame.pack(fill='x', padx=12, pady=(0, 6))
         content_frame.configure(height=200)  # 再压缩高度，为底部高级功能留空间
         content_frame.pack_propagate(False)  # 禁止子控件改变父容器大小
         content_frame.grid_columnconfigure((0, 1, 2), weight=1)
@@ -1135,7 +1138,7 @@ class AMapGUI:
             pass
         
         # POI数据区域
-        data_label = tk.Label(content_frame, text="POI 数据", 
+        data_label = tk.Label(content_frame, text="商家信息数据", 
                              font=('Microsoft YaHei UI', 9, 'bold'),
                              fg='#6b7280', bg='#ffffff')
         data_label.grid(row=0, column=1, sticky='w', pady=(0, 5), padx=(5, 5))
@@ -1715,48 +1718,59 @@ class AMapGUI:
 
 
     def insert_text(self, frame, text):
-        """向指定面板追加一条文本记录（左对齐，自动换行）。"""
+        """向指定面板追加一条文本记录（左对齐，自动换行）。确保在主线程更新UI。"""
         if not hasattr(self, 'frames'):
             self.frames = []
-        # 与日志区域统一的淡灰背景
-        try:
-            bg = self.message_frame.scrollable_frame.cget('bg')
-        except Exception:
-            bg = None
-        if not bg:
-            bg = '#f3f4f6'
-        # 检查窗口是否还存在
-        try:
-            if not self.is_searching or not hasattr(self, 'root') or not self.root.winfo_exists():
-                return
-        except Exception:
-            return
-            
+
         # 去除尾部换行，避免额外间距；空行直接忽略
         text = (text or '').rstrip('\n')
         if text.strip() == '':
             return
-            
+
+        # 在主线程执行实际的UI更新，避免后台线程直接操作Tk
+        def _do_update():
+            # 检查窗口是否还存在
+            try:
+                if not self.is_searching or not hasattr(self, 'root') or not self.root.winfo_exists():
+                    return
+            except Exception:
+                return
+
+            # 与日志区域统一的淡灰背景（放在主线程读取）
+            try:
+                bg_local = self.message_frame.scrollable_frame.cget('bg')
+            except Exception:
+                bg_local = None
+            if not bg_local:
+                bg_local = '#f3f4f6'
+
+            try:
+                label = tk.Label(frame, text=text, anchor='w', bg=bg_local)
+                label.pack(fill='x', padx=0, pady=0, ipady=0)
+            except Exception:
+                return
+
+            # 自动滚动到最底部（日志与POI区域）
+            try:
+                self.root.update_idletasks()
+            except Exception:
+                pass
+            try:
+                if hasattr(self, 'message_frame') and hasattr(self.message_frame, 'canvas'):
+                    self.message_frame.canvas.yview_moveto(1)
+            except Exception:
+                pass
+            try:
+                if hasattr(self, 'table_frame') and hasattr(self.table_frame, 'canvas'):
+                    self.table_frame.canvas.yview_moveto(1)
+            except Exception:
+                pass
+
         try:
-            label = tk.Label(frame, text=text, anchor='w', bg=bg)
-            label.pack(fill='x', padx=0, pady=0, ipady=0)
+            # 将UI更新安排到主线程
+            self.root.after(0, _do_update)
         except Exception:
-            # 如果frame已被销毁，直接返回
-            return
-        # 自动滚动到最底部（日志与POI区域）
-        try:
-            self.root.update_idletasks()
-        except Exception:
-            pass
-        try:
-            if hasattr(self, 'message_frame') and hasattr(self.message_frame, 'canvas'):
-                self.message_frame.canvas.yview_moveto(1)
-        except Exception:
-            pass
-        try:
-            if hasattr(self, 'table_frame') and hasattr(self.table_frame, 'canvas'):
-                self.table_frame.canvas.yview_moveto(1)
-        except Exception:
+            # 如果无法调度，直接忽略该条
             pass
 
     def search_pois(self, keyword, regions):
@@ -2131,6 +2145,10 @@ class AMapGUI:
         - 需已填写有效 Web 服务 Key（GENERAL.api_keys 的第一个）。
         - 先拉取省级，再按省遍历拉取市级，构建 self.province_to_cities 与 self.city_name_to_adcode。
         """
+        # 防抖：若正在加载，则提示并返回
+        if getattr(self, 'is_loading_province_city', False):
+            show_centered_message("提示", "正在从远程加载省/市数据，请稍候…", "info", self.root)
+            return
 
         api_keys_text = self.api_key_entry.get().strip()
         if not api_keys_text:
@@ -2150,6 +2168,14 @@ class AMapGUI:
         for child in self.city_cb_frame.winfo_children():
             child.destroy()
         self.area_hint_label.config(text="正在加载省/市，请稍候...")
+
+        # 设置加载中状态与按钮禁用
+        self.is_loading_province_city = True
+        try:
+            if hasattr(self, 'load_area_button') and self.load_area_button:
+                self.load_area_button.config(state='disabled', text='加载中…')
+        except Exception:
+            pass
 
         def _load():
             try:
@@ -2264,11 +2290,26 @@ class AMapGUI:
                     except Exception as e:
                         show_centered_message("错误", f"从配置加载省/市失败：{e}", "error", self.root)
 
+                    # 复位加载状态与按钮
+                    self.is_loading_province_city = False
+                    try:
+                        if hasattr(self, 'load_area_button') and self.load_area_button:
+                            self.load_area_button.config(state='normal', text='加载省市数据')
+                    except Exception:
+                        pass
+
                 self.root.after(0, _populate_on_main_thread)
             except Exception as e:
                 def _on_error():
                     show_centered_message("错误", f"加载省/市失败：{e}", "error", self.root)
                     self.area_hint_label.config(text="加载失败，请检查网络或 Key。")
+                    # 复位加载状态与按钮
+                    self.is_loading_province_city = False
+                    try:
+                        if hasattr(self, 'load_area_button') and self.load_area_button:
+                            self.load_area_button.config(state='normal', text='加载省市数据')
+                    except Exception:
+                        pass
                 self.root.after(0, _on_error)
 
         threading.Thread(target=_load, daemon=True).start()
