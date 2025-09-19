@@ -11,6 +11,8 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox, filedialog
+import os
+import sys
 
 def show_centered_message(title, message, message_type="info", parent_window=None):
     """显示居中的消息框"""
@@ -2904,6 +2906,22 @@ class AMapGUI:
 
 if __name__ == "__main__":
     root = tk.Tk()
+    # 设置窗口/任务栏图标，兼容 PyInstaller 单文件
+    def _resource_path(relative_path: str) -> str:
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base_path, relative_path)
+
+    try:
+        icon_path = None
+        for name in ("app.ico"):
+            p = _resource_path(name)
+            if os.path.exists(p):
+                icon_path = p
+                break
+        if icon_path:
+            root.iconbitmap(icon_path)
+    except Exception:
+        pass
     app = AMapGUI(root)
 
     style = ttk.Style()
